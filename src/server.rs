@@ -1,4 +1,5 @@
-use TCPListener;
+use std::net::TcpListener;
+use std::io::Read;
 
 pub struct Server {
     pub address: String,
@@ -16,14 +17,15 @@ impl Server {
     pub fn run(&self) {
         println!("Server running on {}:{}", self.address, self.port);
         // Here you would add code to start the server and handle requests
-        let listner = TCPListener::bind(format!("{}:{}", self.address, self.port)).unwrap();
+        let listner = TcpListener::bind(format!("{}:{}", self.address, self.port)).expect("Could not bind to address");
 
         loop {
             match listner.accept() {
-                Ok((stream, addr)) => {
+                Ok((mut stream, addr)) => {
                     println!("New connection from {}", addr);
                     // Here you would handle the incoming request
-                    match stream.read_to_string() {
+                    let mut buffer = String::new();
+                    match stream.read_to_string(&mut buffer) {
                         Ok(request) => {
                             println!("Received request: {}", request);
                             // Here you would parse the request and send a response
