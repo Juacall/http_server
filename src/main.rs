@@ -1,6 +1,6 @@
-use server::Server;
-
 mod server;
+mod httpr;
+
 
 
 fn main() {

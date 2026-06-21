@@ -1,5 +1,8 @@
 use std::net::TcpListener;
 use std::io::Read;
+use crate::httpr::request::Request as HttpRequest;
+use std::convert::TryFrom;
+
 
 pub struct Server {
     pub address: String,
@@ -24,11 +27,28 @@ impl Server {
                 Ok((mut stream, addr)) => {
                     println!("New connection from {}", addr);
                     // Here you would handle the incoming request
-                    let mut buffer = String::new();
-                    match stream.read_to_string(&mut buffer) {
+                    let mut buffer = [0; 512]; // You would typically read the request into a buffer
+                    match stream.read(&mut buffer) {
+                        Ok(0) =>{
+                            println!("Connection closed by client: {}", addr);
+                            continue;
+                        },
                         Ok(request) => {
                             println!("Received request: {}", request);
                             // Here you would parse the request and send a response
+                            let http_request = match HttpRequest::try_from(&buffer[..request]) {
+                                Ok(req) => req,
+                                Err(e) => {
+                                    eprintln!("Failed to parse request: {}", e);
+                                    let response = "HTTP/1.1 400 Bad Request\r\n\r\nBad Request";
+                                    let _ = stream.write_all(response.as_bytes());
+                                    continue;
+                                }
+                            };
+
+                            use std::io::Write;
+                            let response = "HTTP/1.1 200 OK\r\n\r\nHello!";
+                            let _ = stream.write_all(response.as_bytes());
                         }
                         Err(e) => {
                             eprintln!("Error reading from stream: {}", e);
