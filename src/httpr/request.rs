@@ -5,16 +5,16 @@ use std::fmt::{Debug, Display, Formatter};
 use std::path;
 use std::str::Utf8Error;
 
-pub struct Request {
-    pub path: String,
-    pub query_string: Option<String>, // Optional query string for GET requests
+pub struct Request<'buf> {
+    pub path:  & 'buf str,
+    pub query_string: Option<&'buf str>, // Optional query string for GET requests
     pub method: HttpMethod,
 }
 
-impl Request {
+impl<'buf> Request<'buf> {
 
 
-    pub fn new(path: String, method: HttpMethod) -> Self {
+    pub fn new(path: &'buf str, method: HttpMethod) -> Self {
         Request {
             path,
             query_string: None,
@@ -44,10 +44,10 @@ fn getNextWord(request: &str) -> Option<(&str, &str)> {
 
     Some((word, remaining_request))
 }
-impl TryFrom<&[u8]> for Request {
+impl<'buf> TryFrom<&'buf [u8]> for Request<'buf> {
     type Error = RequestParseError;
 
-    fn try_from(buffer: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(buffer: &'buf [u8]) -> Result<Self, Self::Error> {
         let request = std::str::from_utf8(buffer).map_err(|_| RequestParseError::InvalidEncoding)?;
         let (method_str, remaining_request) = getNextWord(request).ok_or(RequestParseError::InvalidRequest)?;
         let (path_str, remaining_request) = getNextWord(remaining_request).ok_or(RequestParseError::InvalidRequest)?;
@@ -72,11 +72,11 @@ impl TryFrom<&[u8]> for Request {
             if query.is_empty() {
                 return Err(RequestParseError::InvalidQueryString);
             }
-            query_string = Some(query.to_string());
+            query_string = Some(query);
         }
 
         Ok(Self {
-            path: path.to_string(),
+            path,
             query_string,
             method,
         })
