@@ -1,13 +1,15 @@
 use crate::httpr::http_method::{self, HttpMethod, MethodError};
+use crate::httpr::query_string::QueryString;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::path;
 use std::str::Utf8Error;
 
+
+#[derive(Debug)]
 pub struct Request<'buf> {
     pub path:  & 'buf str,
-    pub query_string: Option<&'buf str>, // Optional query string for GET requests
+    pub query_string: Option<QueryString<'buf>>, // Optional query string for GET requests
     pub method: HttpMethod,
 }
 
@@ -23,7 +25,7 @@ impl<'buf> Request<'buf> {
     }
 }
 
-fn getNextWord(request: &str) -> Option<(&str, &str)> {
+fn get_next_word(request: &str) -> Option<(&str, &str)> {
     let trimmed_request = request.trim_start();
     if trimmed_request.is_empty() {
         return None;
@@ -44,14 +46,15 @@ fn getNextWord(request: &str) -> Option<(&str, &str)> {
 
     Some((word, remaining_request))
 }
+
 impl<'buf> TryFrom<&'buf [u8]> for Request<'buf> {
     type Error = RequestParseError;
 
     fn try_from(buffer: &'buf [u8]) -> Result<Self, Self::Error> {
         let request = std::str::from_utf8(buffer).map_err(|_| RequestParseError::InvalidEncoding)?;
-        let (method_str, remaining_request) = getNextWord(request).ok_or(RequestParseError::InvalidRequest)?;
-        let (path_str, remaining_request) = getNextWord(remaining_request).ok_or(RequestParseError::InvalidRequest)?;
-        let (protocol_str, _) = getNextWord(remaining_request).ok_or(RequestParseError::InvalidRequest)?;
+        let (method_str, remaining_request) = get_next_word(request).ok_or(RequestParseError::InvalidRequest)?;
+        let (path_str, remaining_request) = get_next_word(remaining_request).ok_or(RequestParseError::InvalidRequest)?;
+        let (protocol_str, _) = get_next_word(remaining_request).ok_or(RequestParseError::InvalidRequest)?;
 
         if protocol_str != "HTTP/1.1" {
             return Err(RequestParseError::InvalidRequest);
@@ -72,7 +75,7 @@ impl<'buf> TryFrom<&'buf [u8]> for Request<'buf> {
             if query.is_empty() {
                 return Err(RequestParseError::InvalidQueryString);
             }
-            query_string = Some(query);
+            query_string = Some(QueryString::from(query));
         }
 
         Ok(Self {

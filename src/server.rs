@@ -1,7 +1,10 @@
 use std::net::TcpListener;
 use std::io::Read;
 use crate::httpr::request::Request as HttpRequest;
+use crate::httpr::response::HttpResponse;
+use crate::httpr::status_code::StatusCode;
 use std::convert::TryFrom;
+use std::io::Write;
 
 
 pub struct Server {
@@ -34,21 +37,23 @@ impl Server {
                             continue;
                         },
                         Ok(request) => {
-                            println!("Received request: {}", request);
+                            println!("Received request: {}", String::from_utf8_lossy(&buffer[..request]));
                             // Here you would parse the request and send a response
                             let http_request = match HttpRequest::try_from(&buffer[..request]) {
                                 Ok(req) => req,
                                 Err(e) => {
                                     eprintln!("Failed to parse request: {}", e);
-                                    let response = "HTTP/1.1 400 Bad Request\r\n\r\nBad Request";
-                                    let _ = stream.write_all(response.as_bytes());
+                                    let response = HttpResponse::new(StatusCode::BadRequest, Some("Bad Request".to_string())); 
+                                    write!(stream, "{}", response.to_string()).expect("Failed to write response");
                                     continue;
                                 }
                             };
 
-                            use std::io::Write;
-                            let response = "HTTP/1.1 200 OK\r\n\r\nHello!";
-                            let _ = stream.write_all(response.as_bytes());
+                            println!("Parsed request: {:?}", http_request);
+                            write!(stream, "{}", HttpResponse::new(StatusCode::Ok, Some("Hello, World!".to_string())).to_string()).expect("Failed to write response");
+                            // use std::io::Write;
+                            // let response = "HTTP/1.1 200 OK\r\n\r\nHello!";
+                            // let _ = stream.write_all(response.as_bytes());
                         }
                         Err(e) => {
                             eprintln!("Error reading from stream: {}", e);
