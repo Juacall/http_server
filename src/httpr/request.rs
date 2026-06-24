@@ -8,21 +8,24 @@ use std::str::Utf8Error;
 
 #[derive(Debug)]
 pub struct Request<'buf> {
-    pub path:  & 'buf str,
-    pub query_string: Option<QueryString<'buf>>, // Optional query string for GET requests
-    pub method: HttpMethod,
+      path:  & 'buf str,
+      query_string: Option<QueryString<'buf>>, // Optional query string for GET requests
+      method: HttpMethod,
 }
 
 impl<'buf> Request<'buf> {
 
-
-    pub fn new(path: &'buf str, method: HttpMethod) -> Self {
-        Request {
-            path,
-            query_string: None,
-            method,
+        pub fn path(&self) -> &str {
+            self.path
         }
-    }
+
+        pub fn query_string(&self) -> Option<&QueryString> {
+            self.query_string.as_ref()
+        }
+
+        pub fn method(&self) -> &HttpMethod {
+            &self.method
+         }
 }
 
 fn get_next_word(request: &str) -> Option<(&str, &str)> {

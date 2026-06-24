@@ -7,6 +7,14 @@ use std::convert::TryFrom;
 use std::io::Write;
 
 
+pub trait Handler {
+    fn handle_request(&mut self, request: HttpRequest) -> HttpResponse;
+    fn handle_bad_request(&mut self, e: &dyn std::error::Error) -> HttpResponse {
+        println!("Failed to parse request: {}", e);
+        HttpResponse::new(StatusCode::BadRequest, Some("Bad Request".to_string()))
+    }
+}
+
 pub struct Server {
     pub address: String,
     pub port: u16,
@@ -20,7 +28,7 @@ impl Server {
         Server { address, port }
     }
 
-    pub fn run(&self) {
+    pub fn run(&self , handler: &mut impl Handler) {
         println!("Server running on {}:{}", self.address, self.port);
         // Here you would add code to start the server and handle requests
         let listner = TcpListener::bind(format!("{}:{}", self.address, self.port)).expect("Could not bind to address");
@@ -39,21 +47,22 @@ impl Server {
                         Ok(request) => {
                             println!("Received request: {}", String::from_utf8_lossy(&buffer[..request]));
                             // Here you would parse the request and send a response
-                            let http_request = match HttpRequest::try_from(&buffer[..request]) {
-                                Ok(req) => req,
+                            let _ = match HttpRequest::try_from(&buffer[..request]) {
+                                Ok(req) => { 
+                                    println!("Parsed request: {:?}", req);
+                                    handler.handle_request(req);
+                                    let response = HttpResponse::new(StatusCode::Ok, Some(" <h1> It Works!</h1> ".to_string()));
+                                    response.send(&mut stream).expect("Failed to send response");
+                                },
                                 Err(e) => {
+                                    let response = handler.handle_bad_request(&e);
                                     eprintln!("Failed to parse request: {}", e);
                                     let response = HttpResponse::new(StatusCode::BadRequest, Some("Bad Request".to_string())); 
-                                    write!(stream, "{}", response.to_string()).expect("Failed to write response");
+                                    response.send(&mut stream).expect("Failed to send response");
                                     continue;
                                 }
                             };
 
-                            println!("Parsed request: {:?}", http_request);
-                            write!(stream, "{}", HttpResponse::new(StatusCode::Ok, Some("Hello, World!".to_string())).to_string()).expect("Failed to write response");
-                            // use std::io::Write;
-                            // let response = "HTTP/1.1 200 OK\r\n\r\nHello!";
-                            // let _ = stream.write_all(response.as_bytes());
                         }
                         Err(e) => {
                             eprintln!("Error reading from stream: {}", e);

@@ -26,7 +26,10 @@ impl HttpResponse {
 
 
     pub fn send(&self, stream: &mut std::net::TcpStream) -> std::io::Result<()> {
-        let response_string = self.to_string();
+        let response_string =  match &self.body {
+            Some(b) => b,
+            None => "",
+        };
         write!(stream, "HTTP/1.1 {} {}\r\n\r\n{}", self.status_code, self.status_code.reason_phrase(), response_string)?;
         Ok(())
     }
